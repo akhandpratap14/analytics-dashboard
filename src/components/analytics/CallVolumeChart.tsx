@@ -50,13 +50,21 @@ const CallVolumeChart = ({ userEmail, onEditRequest }: CallVolumeChartProps) => 
       console.error("Error loading user data:", error);
       return;
     }
+    let savedData = data?.chart_data;
 
-    if (data?.chart_data) {
-      const savedData = data.chart_data as typeof defaultData;
-      setPreviousData(savedData);
-      setChartData(savedData);
-      setEditedData(savedData);
+    if (!Array.isArray(savedData) || savedData.length === 0) {
+      console.warn("No valid saved data found, using defaults");
+      savedData = defaultData;
     }
+
+    const normalizedData = savedData.map((item: { day: string, calls: number }) => ({
+      day: item.day ?? "",
+      calls: Number(item.calls ?? 0),
+    }));
+
+    setPreviousData(normalizedData);
+    setChartData(normalizedData);
+    setEditedData(normalizedData);
   };
 
   const handleEdit = () => {
@@ -98,7 +106,7 @@ const CallVolumeChart = ({ userEmail, onEditRequest }: CallVolumeChartProps) => 
       .upsert({
         email: userEmail,
         chart_data: editedData,
-      });
+      }, { onConflict: "email" });
 
     if (error) {
       toast({

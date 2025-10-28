@@ -7,6 +7,7 @@ import SuccessRateChart from "@/components/analytics/SuccessRateChart";
 import SentimentChart from "@/components/analytics/SentimentChart";
 import CallVolumeChart from "@/components/analytics/CallVolumeChart";
 import EmailCaptureDialog from "@/components/analytics/EmailCaptureDialog";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -20,14 +21,49 @@ const Index = () => {
     }
   };
 
-  const handleEmailSubmit = (email: string) => {
+  const handleEmailSubmit = async (email: string) => {
     setUserEmail(email);
     setShowEmailDialog(false);
+
+    const { data: existingUser, error: fetchError } = await supabase
+      .from("user_analytics")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (fetchError) {
+      toast({
+        title: "Error",
+        description: "Failed to check user. Please try again.",
+        variant: "destructive",
+      });
+      console.error(fetchError);
+      return;
+    }
+
+    if (!existingUser) {
+      const { error: insertError } = await supabase.from("user_analytics").insert({
+        email,
+        chart_data: [{}],
+      });
+
+      if (insertError) {
+        toast({
+          title: "Error",
+          description: "Could not save your email. Please try again.",
+          variant: "destructive",
+        });
+        console.error(insertError);
+        return;
+      }
+    }
+
     toast({
       title: "Email Saved",
       description: "You can now customize your analytics data.",
     });
   };
+
 
   const stats = [
     { icon: BarChart3, label: "Total Calls", value: "12,543", change: "+12.5%" },
@@ -48,9 +84,6 @@ const Index = () => {
               </div>
               <h1 className="text-xl font-bold">Voice Analytics</h1>
             </div>
-            <Button variant="outline" className="border-primary text-primary hover:bg-primary hover:text-primary-foreground">
-              Export Report
-            </Button>
           </div>
         </div>
       </header>
